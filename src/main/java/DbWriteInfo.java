@@ -1,11 +1,14 @@
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.sql.*;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Properties;
 
 
 public class DbWriteInfo implements  Runnable {
 private int id;
+List<String> list = new ArrayList<>();
     public DbWriteInfo(int id){
         this.id = id;
         }
@@ -21,19 +24,20 @@ private int id;
         } catch (IOException e) {
             System.err.println("File with resources NOT FOUND!");
         }
-            String query2 = property.getProperty("query2");
-            String query3 = property.getProperty("query3");
-            String query4 = property.getProperty("query4");
-            String query5 = property.getProperty("query5");
+            list.add(property.getProperty("query2"));
+            list.add(property.getProperty("query3"));
+
         try {
             connection = ConnectionPool.getConnection();
-        } catch (InterruptedException | SQLException e) {
-            e.printStackTrace();
-        }
-        try {
-            BatchQueriesExecutor.executeBatch(connection, new String[]{query2, query3, query4, query5});
         } catch (SQLException e) {
             e.printStackTrace();
         }
+
+        try {
+            BatchQueriesExecutor.executeBatch(connection, list);
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+
     }
 }

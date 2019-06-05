@@ -1,6 +1,7 @@
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.sql.*;
+import java.util.List;
 import java.util.Properties;
 import java.util.ResourceBundle;
 import java.util.concurrent.ArrayBlockingQueue;
@@ -34,32 +35,39 @@ public class ConnectionPool {
             }
 
     }
-
-    public static synchronized Connection getConnection() throws InterruptedException, SQLException { //What is the Object to synchronized to???
+    public static synchronized Connection getConnection() throws SQLException {
 
         if (!connectionsQueue.isEmpty()){return connectionsQueue.poll();}
-        while ((System.currentTimeMillis()-awaitingTime) < timeOutMilSec) {
-        if (!connectionsQueue.isEmpty()){return connectionsQueue.take();}
+        else {
+            System.out.println("Run out of connections in pool!!!");                        ///////WARNING!
+            return DriverManager.getConnection(url, login, password);
         }
-        awaitingTime = System.currentTimeMillis();
-        connectionsQueue.offer(DriverManager.getConnection(url, login, password));
-        return connectionsQueue.take();
     }
+//    public static synchronized Connection getConnection() throws InterruptedException, SQLException { //What is the Object to synchronized to???
+//
+//        if (!connectionsQueue.isEmpty()){return connectionsQueue.poll();}
+//        while ((System.currentTimeMillis()-awaitingTime) < timeOutMilSec) {
+//        if (!connectionsQueue.isEmpty()){return connectionsQueue.take();}
+//        }
+//        awaitingTime = System.currentTimeMillis();
+//        connectionsQueue.offer(DriverManager.getConnection(url, login, password));
+//        return connectionsQueue.take();
+//    }
 
     public static void closeConnection(Connection connection) throws SQLException {
         awaitingTime = System.currentTimeMillis();
         if (!connectionsQueue.offer(connection)) connection.close();
     }
-//
-//    public static void getPoolSize(){
-//        System.out.println(connectionsQueue.size());
-//    }
+
+    public static void getPoolSize(){
+        System.out.println(connectionsQueue.size());
+    }
 }
 
 class BatchQueriesExecutor {
-   public static synchronized void executeBatch(Connection connection, String... queries) throws SQLException {
+   public static synchronized void executeBatch(Connection connection, List<String> list) throws SQLException {
 
-        if(connection==null || queries.length==0) {return;} else {
+        if(connection==null || list.size()==0) {return;} else {
 
             Statement statement = connection.createStatement();
 
@@ -68,7 +76,7 @@ class BatchQueriesExecutor {
             Savepoint savepointOne = connection.setSavepoint("SavepointOne");
 
             try {
-                for(String request : queries) {
+                for(String request : list) {
                     statement.execute(request);
                 }
                 connection.commit();
@@ -77,7 +85,6 @@ class BatchQueriesExecutor {
                 System.out.println("SQLException. Executing rollback to savepoint...");
                 connection.rollback(savepointOne);
                 statement.close();
-
             }
 
             connection.releaseSavepoint(savepointOne);
